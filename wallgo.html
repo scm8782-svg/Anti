@@ -1,0 +1,375 @@
+<title>우리집 벽바둑</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: one narrow column — players strip, status line, square board, controls, rules. Phone first. */
+:root{
+  --bg:#e9edf1; --surface:#ffffff; --ink:#18202b; --muted:#5b6676; --line:#cad2dc;
+  --board:#2d3642; --cell:#f4f6f8; --cell-hi:#dfe8d9; --groove:#46505e;
+  --p0:#2459d6; --p0-soft:#d6e1fa; --p1:#e0862a; --p1-soft:#fbe6cf;
+  --ok:#2d8a57; --focus:#2459d6;
+  --f-display:"Black Han Sans","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-body:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11151b; --surface:#1a2029; --ink:#e7ecf3; --muted:#9aa5b5; --line:#2c3440;
+  --board:#0b0e13; --cell:#2a323e; --cell-hi:#34503f; --groove:#3a4452;
+  --p0:#6b96ff; --p0-soft:#23345c; --p1:#f2a552; --p1-soft:#4d3519; --ok:#5cc28a; --focus:#6b96ff;
+  color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#11151b; --surface:#1a2029; --ink:#e7ecf3; --muted:#9aa5b5; --line:#2c3440;
+  --board:#0b0e13; --cell:#2a323e; --cell-hi:#34503f; --groove:#3a4452;
+  --p0:#6b96ff; --p0-soft:#23345c; --p1:#f2a552; --p1-soft:#4d3519; --ok:#5cc28a; --focus:#6b96ff;
+  color-scheme:dark }
+html,body{background:var(--bg)}
+body{color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px}
+.wrap{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--f-display);font-weight:400;font-size:30px;letter-spacing:.02em;margin:0;line-height:1.1}
+.mode{display:flex;border:1px solid var(--line);border-radius:999px;padding:3px;background:var(--surface)}
+.mode button{border:0;background:none;color:var(--muted);font:500 13px var(--f-body);padding:6px 12px;border-radius:999px;cursor:pointer}
+.mode button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.players{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pl{background:var(--surface);border:2px solid transparent;border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.pl.turn0{border-color:var(--p0)} .pl.turn1{border-color:var(--p1)}
+.pl .top{display:flex;align-items:center;gap:8px}
+.dot{width:14px;height:14px;border-radius:50%;flex:none}
+.dot.p0{background:var(--p0)} .dot.p1{background:var(--p1)}
+.pl .who{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl .score{font-family:var(--f-display);font-size:26px;line-height:1;font-variant-numeric:tabular-nums}
+.pl .score small{font-family:var(--f-body);font-size:12px;color:var(--muted);margin-left:4px}
+.pl .seat{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.linkbtn{border:1px solid var(--line);background:none;color:var(--ink);font:500 12px var(--f-body);padding:3px 9px;border-radius:999px;cursor:pointer}
+.status{background:var(--surface);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:10px;justify-content:space-between;min-height:52px}
+.status .msg{font-weight:500;min-width:0}
+.status .msg.mine{color:var(--ok)}
+.btn{border:0;background:var(--ink);color:var(--bg);font:700 14px var(--f-body);padding:9px 16px;border-radius:10px;cursor:pointer;white-space:nowrap}
+.btn.ghost{background:none;color:var(--ink);border:1px solid var(--line)}
+.btn.warn{background:#c2412d;color:#fff}
+button:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.boardbox{background:var(--board);border-radius:18px;padding:10px;aspect-ratio:1;max-width:100%}
+svg{display:block;width:100%;height:100%;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.cell{fill:var(--cell)}
+.cell.own0{fill:var(--p0-soft)} .cell.own1{fill:var(--p1-soft)}
+.cell.tap{fill:var(--cell-hi);cursor:pointer}
+.cell.tap:hover{opacity:.85}
+.coord{fill:var(--muted);font:500 9px var(--f-body);opacity:.5}
+.wall0{fill:var(--p0)} .wall1{fill:var(--p1)}
+.wall.lastw{stroke:var(--ink);stroke-width:2}
+.wopt{fill:var(--ok);opacity:.35;cursor:pointer}
+.wopt-hit{fill:transparent;cursor:pointer}
+.wopt-g:hover .wopt{opacity:.7}
+.pc0{fill:var(--p0)} .pc1{fill:var(--p1)}
+.pc{stroke:var(--surface);stroke-width:3}
+.pc.can{cursor:pointer}
+.pc.sel{stroke:var(--ok);stroke-width:5}
+.pc-ghost{opacity:.25}
+.lastmark{fill:var(--surface)}
+.foot{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;align-items:center}
+.note{font-size:12px;color:var(--muted)}
+details{background:var(--surface);border-radius:14px;padding:12px 14px}
+summary{font-weight:700;cursor:pointer}
+details ol{padding-left:20px;margin:10px 0 0;display:flex;flex-direction:column;gap:6px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;max-width:90vw;z-index:20}
+.over{font-family:var(--f-display);font-size:20px;font-weight:400}
+@media (prefers-reduced-motion:no-preference){.pc,.cell{transition:opacity .15s}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>우리집 벽바둑</h1>
+    <div class="mode" role="group" aria-label="대국 방식">
+      <button id="m-online" aria-pressed="true">두 폰으로</button>
+      <button id="m-local" aria-pressed="false">한 폰으로</button>
+    </div>
+  </header>
+
+  <section class="players">
+    <div class="pl" id="pl0">
+      <div class="top"><span class="dot p0"></span><span class="who" id="who0">파랑</span></div>
+      <div class="score"><span id="sc0">0</span><small>칸 확보</small></div>
+      <div class="seat" id="seat0"></div>
+    </div>
+    <div class="pl" id="pl1">
+      <div class="top"><span class="dot p1"></span><span class="who" id="who1">주황</span></div>
+      <div class="score"><span id="sc1">0</span><small>칸 확보</small></div>
+      <div class="seat" id="seat1"></div>
+    </div>
+  </section>
+
+  <div class="status"><div class="msg" id="msg">불러오는 중…</div><div id="act"></div></div>
+
+  <div class="boardbox"><svg id="board" viewBox="-6 -6 432 432" aria-label="7×7 벽바둑 판"></svg></div>
+
+  <div class="foot">
+    <span class="note" id="note"></span>
+    <button class="btn ghost" id="newgame">새 게임</button>
+  </div>
+
+  <details>
+    <summary>규칙</summary>
+    <ol>
+      <li>7×7 판. 각자 말 4개. 시작할 때 2개씩은 정해진 자리에 놓여 있고, 나머지 2개씩을 번갈아 원하는 빈칸에 놓습니다 (후공 → 선공 → 선공 → 후공).</li>
+      <li>내 차례: 내 말 하나를 상하좌우로 <b>0~2칸</b> 움직입니다. 꺾어서 가도 되고 제자리에 있어도 됩니다. 벽이나 다른 말은 넘을 수 없어요.</li>
+      <li>움직인 뒤 반드시 그 말이 선 칸의 네 변 중 하나에 <b>벽</b>을 세웁니다. 판 테두리는 원래 벽입니다.</li>
+      <li>벽으로 나뉜 모든 구역에 한 사람의 말만 남으면 게임이 끝납니다. 내 말만 있는 구역의 칸 수가 내 점수입니다.</li>
+      <li>점수가 같으면 가장 큰 구역 하나가 더 큰 사람이 이깁니다. 그것도 같으면 무승부.</li>
+      <li>움직일 수 있는 말이 없으면 차례를 넘깁니다. 새 게임마다 선공이 바뀝니다.</li>
+    </ol>
+  </details>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+const N=7, S=60;
+const COLOR=['파랑','주황'];
+const DIRS={up:[-1,0],down:[1,0],left:[0,-1],right:[0,1]};
+const $=id=>document.getElementById(id);
+const clone=o=>JSON.parse(JSON.stringify(o));
+
+/* ---------- rules ---------- */
+function wk(r,c,d){
+  if(d==='up')return 'h:'+(r-1)+':'+c;
+  if(d==='down')return 'h:'+r+':'+c;
+  if(d==='left')return 'v:'+r+':'+(c-1);
+  return 'v:'+r+':'+c;
+}
+const inB=(r,c)=>r>=0&&r<N&&c>=0&&c<N;
+const wallSet=s=>new Set(s.walls.map(w=>w.k));
+function occ(s){const m=new Map();s.pieces.forEach((p,i)=>m.set(p.r+','+p.c,i));return m}
+function step(ws,r,c,d){const[dr,dc]=DIRS[d];const nr=r+dr,nc=c+dc;if(!inB(nr,nc)||ws.has(wk(r,c,d)))return null;return[nr,nc]}
+function freeSides(ws,r,c){return Object.keys(DIRS).filter(d=>step(ws,r,c,d))}
+function reach(s,i){
+  const ws=wallSet(s),o=occ(s),p=s.pieces[i];
+  const seen=new Set([p.r+','+p.c]);let fr=[[p.r,p.c]];
+  for(let k=0;k<2;k++){const nx=[];
+    for(const[r,c]of fr)for(const d in DIRS){const t=step(ws,r,c,d);if(!t)continue;const key=t[0]+','+t[1];
+      if(seen.has(key)||o.has(key))continue;seen.add(key);nx.push(t)}
+    fr=nx}
+  return[...seen].map(k=>k.split(',').map(Number)).filter(([r,c])=>freeSides(ws,r,c).length>0);
+}
+const hasMove=(s,p)=>s.pieces.some((pc,i)=>pc.p===p&&reach(s,i).length>0);
+function regions(s){
+  const ws=wallSet(s),o=occ(s),id=[...Array(N)].map(()=>Array(N).fill(-1)),regs=[];
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){if(id[r][c]>=0)continue;
+    const g={cells:[],owners:new Set()},q=[[r,c]];id[r][c]=regs.length;
+    while(q.length){const[a,b]=q.pop();g.cells.push([a,b]);const k=a+','+b;if(o.has(k))g.owners.add(s.pieces[o.get(k)].p);
+      for(const d in DIRS){const t=step(ws,a,b,d);if(t&&id[t[0]][t[1]]<0){id[t[0]][t[1]]=regs.length;q.push(t)}}}
+    regs.push(g)}
+  return{regs,id};
+}
+function evaluate(s){
+  const{regs,id}=regions(s),score=[0,0],big=[0,0];let done=true;
+  for(const g of regs){if(g.owners.size>1)done=false;else if(g.owners.size===1){const p=[...g.owners][0];score[p]+=g.cells.length;big[p]=Math.max(big[p],g.cells.length)}}
+  return{score,big,done,regs,id};
+}
+const placeOrder=s=>[1-s.first,s.first,s.first,1-s.first];
+function newGame(prev){
+  const first=prev?1-prev.first:0;
+  return{rev:(prev&&prev.rev||0)+1,game:(prev&&prev.game||0)+1,phase:'place',first,turn:first,placeStep:0,
+    pieces:[{p:0,r:1,c:1},{p:0,r:5,c:5},{p:1,r:1,c:5},{p:1,r:5,c:1}],
+    walls:[],seats:prev&&prev.seats?prev.seats.slice():[null,null],last:null,result:null,skipped:null,moves:0};
+}
+function finish(n){
+  const ev=evaluate(n);
+  const end=()=>{n.phase='over';const w=ev.score[0]!==ev.score[1]?(ev.score[0]>ev.score[1]?0:1):ev.big[0]!==ev.big[1]?(ev.big[0]>ev.big[1]?0:1):-1;
+    n.result={score:ev.score,big:ev.big,winner:w}};
+  if(ev.done)return end();
+  const nx=1-n.turn;
+  if(hasMove(n,nx)){n.turn=nx;n.skipped=null}
+  else if(hasMove(n,n.turn)){n.skipped=nx}
+  else end();
+}
+function doPlace(s,r,c){const n=clone(s);const p=placeOrder(s)[s.placeStep];n.pieces.push({p,r,c});n.placeStep++;n.last={to:[r,c]};
+  if(n.placeStep>=4){n.phase='move';n.turn=n.first;if(!hasMove(n,n.turn)){n.turn=1-n.turn}}return n}
+function doTurn(s,i,dest,dir){const n=clone(s),pc=n.pieces[i],from=[pc.r,pc.c];pc.r=dest[0];pc.c=dest[1];
+  const k=wk(dest[0],dest[1],dir);n.walls.push({k,p:pc.p});n.last={piece:i,from,to:dest,k};n.moves++;finish(n);return n}
+function actor(s){if(!s)return null;if(s.phase==='place')return placeOrder(s)[s.placeStep];if(s.phase==='move')return s.turn;return null}
+
+/* ---------- app state ---------- */
+let mode='online', state=null, localState=null, sel=null, dest=null;
+let db=null, ref=null, user=null, myId=null, readOnly=false, writing=false, loaded=false, names={};
+const LKEY='wallgo-local';
+try{const t=localStorage.getItem(LKEY);if(t)localState=JSON.parse(t)}catch(e){}
+try{if(localStorage.getItem('wallgo-mode')==='local')mode='local'}catch(e){}
+
+const cur=()=>mode==='local'?localState:state;
+function canAct(p){const s=cur();if(!s||p==null)return false;if(mode==='local')return true;return !!myId&&!readOnly&&s.seats[p]===myId}
+function pname(p){const s=cur();if(mode==='online'&&s&&s.seats[p]){const n=names[s.seats[p]];if(s.seats[p]===myId)return(n||'나')+' (나)';return n||COLOR[p]}return COLOR[p]}
+
+let toastT;function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,2600)}
+
+async function save(n){
+  if(mode==='local'){localState=n;try{localStorage.setItem(LKEY,JSON.stringify(n))}catch(e){}sel=dest=null;render();return}
+  if(!ref||writing)return;
+  writing=true;const prev=state;n.rev=(prev&&prev.rev||0)+1;state=n;sel=dest=null;render();
+  try{
+    const snap=await ref.get();const d=snap.exists?snap.data():null;
+    if(d&&prev&&d.rev!==prev.rev){state=clone(d);toast('상대가 먼저 두었어요. 판을 다시 맞췄어요.');render()}
+    else await ref.set(n);
+  }catch(e){state=prev;render();
+    if(e&&e.code==='invalid_argument'){readOnly=true;toast('이 판에 둘 권한이 없어요. 공유 설정에서 편집자로 초대받아야 해요.')}
+    else toast('저장하지 못했어요. 잠시 후 다시 눌러 주세요.')}
+  finally{writing=false}
+}
+
+/* ---------- render ---------- */
+const NS='http://www.w3.org/2000/svg';
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e}
+function wallRect(k,thick){const[t,a,b]=k.split(':');const r=+a,c=+b;
+  if(t==='h')return{x:c*S+2,y:(r+1)*S-thick/2,width:S-4,height:thick};
+  return{x:(c+1)*S-thick/2,y:r*S+2,width:thick,height:S-4}}
+
+function renderBoard(){
+  const svg=$('board');svg.textContent='';const s=cur();
+  const g=el('g',{},svg);
+  const ev=s?evaluate(s):null;
+  const who=actor(s), mine=canAct(who);
+  const reachSet=new Set();
+  if(s&&s.phase==='move'&&sel!=null&&!dest)reach(s,sel).forEach(([r,c])=>reachSet.add(r+','+c));
+  const o=s?occ(s):new Map();
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    let cls='cell';
+    if(ev){const reg=ev.regs[ev.id[r][c]];if(reg.owners.size===1)cls+=' own'+[...reg.owners][0]}
+    const key=r+','+c;const attrs={x:c*S+3,y:r*S+3,width:S-6,height:S-6,rx:7};
+    if(reachSet.has(key)){cls+=' tap';attrs['data-act']='dest';attrs['data-r']=r;attrs['data-c']=c}
+    else if(s&&s.phase==='place'&&mine&&!o.has(key)){cls+=' tap';attrs['data-act']='place';attrs['data-r']=r;attrs['data-c']=c}
+    attrs.class=cls;el('rect',attrs,g);
+  }
+  if(!s)return;
+  const lastK=s.last&&s.last.k;
+  for(const w of s.walls){const R=wallRect(w.k,9);el('rect',Object.assign({rx:3,class:'wall wall'+w.p+(w.k===lastK?' lastw':'')},R),g)}
+  // pieces
+  s.pieces.forEach((pc,i)=>{
+    let r=pc.r,c=pc.c;
+    if(i===sel&&dest){el('circle',{cx:c*S+S/2,cy:r*S+S/2,r:19,class:'pc pc'+pc.p+' pc-ghost'},g);r=dest[0];c=dest[1]}
+    const can=s.phase==='move'&&mine&&pc.p===s.turn;
+    const a={cx:c*S+S/2,cy:r*S+S/2,r:19,class:'pc pc'+pc.p+(can?' can':'')+(i===sel?' sel':'')};
+    if(can){a['data-act']='piece';a['data-i']=i}
+    el('circle',a,g);
+    if(s.last&&s.last.to&&s.last.to[0]===pc.r&&s.last.to[1]===pc.c&&!(i===sel&&dest))el('circle',{cx:pc.c*S+S/2,cy:pc.r*S+S/2,r:4,class:'lastmark','pointer-events':'none'},g);
+  });
+  // wall options
+  if(s.phase==='move'&&sel!=null&&dest){
+    const ws=wallSet(s);
+    for(const d of freeSides(ws,dest[0],dest[1])){const k=wk(dest[0],dest[1],d);
+      const gg=el('g',{class:'wopt-g','data-act':'wall','data-d':d},g);
+      el('rect',Object.assign({rx:4,class:'wopt'},wallRect(k,11)),gg);
+      el('rect',Object.assign({class:'wopt-hit'},wallRect(k,30)),gg);}
+  }
+}
+
+function renderStatus(){
+  const s=cur(),msg=$('msg'),act=$('act');act.textContent='';msg.className='msg';
+  if(!s){msg.textContent=mode==='online'?(loaded?'아직 판이 없어요. 새 게임을 시작하세요.':'판을 불러오는 중…'):'새 게임을 시작하세요.';
+    if(loaded||mode==='local'){const b=document.createElement('button');b.className='btn';b.textContent='새 게임 시작';b.onclick=()=>startNew();act.appendChild(b)}return}
+  if(s.phase==='over'){const R=s.result;msg.className='msg over';
+    msg.textContent=R.winner<0?`무승부 ${R.score[0]} : ${R.score[1]}`:`${pname(R.winner)} 승리! ${R.score[0]} : ${R.score[1]}`+(R.score[0]===R.score[1]?' (큰 구역으로 결정)':'');
+    const b=document.createElement('button');b.className='btn';b.textContent='한 판 더';b.onclick=()=>startNew();act.appendChild(b);return}
+  const who=actor(s);
+  if(mode==='online'&&!s.seats[who]){msg.textContent=`${COLOR[who]} 자리가 비어 있어요. 위에서 자리에 앉아 주세요.`;return}
+  if(!canAct(who)){msg.textContent=`${pname(who)} 차례예요. 기다리는 중…`;return}
+  msg.classList.add('mine');
+  const tag=mode==='local'?`${COLOR[who]} · `:'내 차례 · ';
+  if(s.phase==='place'){const k=placeOrder(s).slice(0,s.placeStep).filter(p=>p===who).length+1;msg.textContent=`${tag}말을 놓을 빈칸을 누르세요 (${k}/2)`;return}
+  if(sel==null)msg.textContent=tag+(s.skipped!=null?`${COLOR[s.skipped]}은 둘 곳이 없어 한 번 더! `:'')+'움직일 말을 고르세요';
+  else if(!dest)msg.textContent=tag+'갈 칸을 고르세요 (제자리면 말을 한 번 더)';
+  else msg.textContent=tag+'벽을 세울 변을 누르세요';
+  if(sel!=null){const b=document.createElement('button');b.className='btn ghost';b.textContent='취소';b.onclick=()=>{sel=dest=null;render()};act.appendChild(b)}
+}
+
+function renderPlayers(){
+  const s=cur(),ev=s?evaluate(s):null,who=actor(s);
+  for(const p of[0,1]){
+    $('who'+p).textContent=pname(p);
+    $('sc'+p).textContent=ev?ev.score[p]:0;
+    $('pl'+p).className='pl'+(who===p?' turn'+p:'');
+    const seat=$('seat'+p);seat.textContent='';
+    if(mode==='local'){seat.textContent=s&&s.phase!=='over'&&s.first===p?'선공':'';continue}
+    if(!s){continue}
+    const sid=s.seats[p];
+    const lab=document.createElement('span');lab.textContent=(s.first===p?'선공 · ':'')+(sid?(sid===myId?'내 자리':'앉음'):'빈자리');seat.appendChild(lab);
+    if(myId&&!readOnly){
+      if(!sid){const b=document.createElement('button');b.className='linkbtn';b.textContent='여기 앉기';b.onclick=()=>sit(p,myId);seat.appendChild(b)}
+      else if(sid===myId){const b=document.createElement('button');b.className='linkbtn';b.textContent='일어나기';b.onclick=()=>sit(p,null);seat.appendChild(b)}
+    }
+  }
+}
+function renderNote(){
+  const n=$('note');
+  if(mode==='local')n.textContent='한 폰을 번갈아 들고 두는 모드예요. 이 기기에만 저장돼요.';
+  else if(!db)n.textContent='이 화면에서는 온라인 저장을 쓸 수 없어요. "한 폰으로" 모드를 써 주세요.';
+  else if(!myId)n.textContent='로그인해야 자리에 앉을 수 있어요.';
+  else if(readOnly)n.textContent='보기 전용이에요. 판 주인이 편집자로 초대해야 둘 수 있어요.';
+  else{const s=state;n.textContent=s?`${s.game}번째 판 · ${s.moves}수`:''}
+  $('m-online').setAttribute('aria-pressed',mode==='online');$('m-local').setAttribute('aria-pressed',mode==='local');
+}
+let wasMine=false;
+function render(){renderPlayers();renderStatus();renderBoard();renderNote();
+  const s=cur();const mine=mode==='online'&&s&&canAct(actor(s));
+  document.title=mine?'● 내 차례 · 우리집 벽바둑':'우리집 벽바둑';
+  if(mine&&!wasMine){try{navigator.vibrate&&navigator.vibrate(120)}catch(e){}}
+  wasMine=!!mine;
+}
+
+/* ---------- actions ---------- */
+let confirmT=null;
+function startNew(){const s=cur();save(newGame(s))}
+$('newgame').onclick=()=>{
+  const b=$('newgame');const s=cur();
+  if(!s||s.phase==='over'){startNew();return}
+  if(b.dataset.arm){clearTimeout(confirmT);delete b.dataset.arm;b.className='btn ghost';b.textContent='새 게임';startNew();return}
+  b.dataset.arm='1';b.className='btn warn';b.textContent='지금 판을 버릴까요? 한 번 더 누르기';
+  confirmT=setTimeout(()=>{delete b.dataset.arm;b.className='btn ghost';b.textContent='새 게임'},3500);
+};
+async function sit(p,id){
+  if(!ref)return;let s=state;
+  try{const snap=await ref.get();if(snap.exists)s=clone(snap.data())}catch(e){}
+  if(!s){s=newGame(null)}else s=clone(s);
+  if(id&&s.seats[p]&&s.seats[p]!==id){state=s;toast('그 자리는 방금 다른 사람이 앉았어요.');render();return}
+  s.seats[p]=id;state=s;save(clone(s));
+}
+$('board').addEventListener('click',e=>{
+  const t=e.target.closest('[data-act]');const s=cur();if(!s)return;
+  if(!t){if(sel!=null){sel=dest=null;render()}return}
+  const a=t.dataset.act;
+  if(a==='place'){save(doPlace(s,+t.dataset.r,+t.dataset.c))}
+  else if(a==='piece'){const i=+t.dataset.i;
+    if(sel===i&&!dest){const pc=s.pieces[i];if(reach(s,i).some(([r,c])=>r===pc.r&&c===pc.c))dest=[pc.r,pc.c];else{sel=null;toast('이 칸에는 더 세울 벽이 없어요.')}}
+    else{sel=i;dest=null}render()}
+  else if(a==='dest'){dest=[+t.dataset.r,+t.dataset.c];render()}
+  else if(a==='wall'){save(doTurn(s,sel,dest,t.dataset.d))}
+});
+function setMode(m){mode=m;sel=dest=null;try{localStorage.setItem('wallgo-mode',m)}catch(e){}render()}
+$('m-online').onclick=()=>setMode('online');$('m-local').onclick=()=>setMode('local');
+
+/* ---------- online wiring ---------- */
+async function resolveNames(){
+  if(!user||!state)return;const ids=state.seats.filter(Boolean);if(!ids.length)return;
+  try{const ps=await user.profiles(ids);let ch=false;for(const id of ids){const n=ps&&ps[id]&&ps[id].name||'';if(n&&names[id]!==n){names[id]=n;ch=true}}if(ch)render()}catch(e){}
+}
+async function connect(){
+  render();
+  const C=window.claude;
+  if(!C||!C.use){loaded=true;if(mode==='online')mode='local';render();return}
+  const [d,u]=await Promise.all([C.use('db'),C.use('user')]);
+  db=d;user=u;
+  if(user){try{myId=await user.id()}catch(e){}
+    try{const w=await user.can('data.write');if(w===false)readOnly=true}catch(e){}}
+  if(!db){loaded=true;if(mode==='online'){mode='local'}render();return}
+  ref=db.doc('games/current');
+  const timer=setTimeout(()=>{if(!loaded){loaded=true;$('note').textContent='판에 연결하지 못했어요. 네트워크를 확인해 주세요.'}},10000);
+  ref.onSnapshot(snap=>{
+    const prevRev=state&&state.rev;
+    state=snap.exists?clone(snap.data()):null;
+    if(!snap.metadata.fromCache){loaded=true;clearTimeout(timer)}
+    if(state&&state.rev!==prevRev&&!snap.metadata.hasPendingWrites){sel=dest=null}
+    render();resolveNames();
+  },err=>{loaded=true;clearTimeout(timer);toast('판 연결이 끊겼어요. 새로고침해 주세요.');render()});
+}
+connect();
+})();
+</script>
