@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2d3642">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>우리집 벽바둑</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: one narrow column — players, status, square board, room panel, rules. Phone first. */
+:root{
+  --bg:#e9edf1; --surface:#ffffff; --ink:#18202b; --muted:#5b6676; --line:#cad2dc;
+  --board:#2d3642; --cell:#f4f6f8; --cell-hi:#dfe8d9;
+  --p0:#2459d6; --p0-soft:#d6e1fa; --p1:#e0862a; --p1-soft:#fbe6cf;
+  --ok:#2d8a57; --bad:#c2412d; --focus:#2459d6;
+  --f-display:"Black Han Sans","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-body:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#11151b; --surface:#1a2029; --ink:#e7ecf3; --muted:#9aa5b5; --line:#2c3440;
+  --board:#0b0e13; --cell:#2a323e; --cell-hi:#34503f;
+  --p0:#6b96ff; --p0-soft:#23345c; --p1:#f2a552; --p1-soft:#4d3519; --ok:#5cc28a; --bad:#ef7a64; --focus:#6b96ff;
+  color-scheme:dark }}
+*{box-sizing:border-box}
+html,body{background:var(--bg);margin:0}
+body{color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;-webkit-tap-highlight-color:transparent;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-top:calc(16px + env(safe-area-inset-top,0px));padding-bottom:calc(40px + env(safe-area-inset-bottom,0px))}
+.wrap{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--f-display);font-weight:400;font-size:30px;letter-spacing:.02em;margin:0;line-height:1.1}
+.mode{display:flex;border:1px solid var(--line);border-radius:999px;padding:3px;background:var(--surface)}
+.mode button{border:0;background:none;color:var(--muted);font:500 13px var(--f-body);padding:6px 12px;border-radius:999px;cursor:pointer}
+.mode button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.players{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pl{background:var(--surface);border:2px solid transparent;border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.pl.turn0{border-color:var(--p0)} .pl.turn1{border-color:var(--p1)}
+.pl .top{display:flex;align-items:center;gap:8px}
+.dot{width:14px;height:14px;border-radius:50%;flex:none}
+.dot.p0{background:var(--p0)} .dot.p1{background:var(--p1)}
+.pl .who{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl .score{font-family:var(--f-display);font-size:26px;line-height:1;font-variant-numeric:tabular-nums}
+.pl .score small{font-family:var(--f-body);font-size:12px;color:var(--muted);margin-left:4px}
+.pl .seat{font-size:12px;color:var(--muted);min-height:18px}
+.status{background:var(--surface);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:10px;justify-content:space-between;min-height:52px}
+.status .msg{font-weight:500;min-width:0}
+.status .msg.mine{color:var(--ok)}
+.status .msg.over{font-family:var(--f-display);font-size:20px;font-weight:400}
+.btn{border:0;background:var(--ink);color:var(--bg);font:700 14px var(--f-body);padding:9px 16px;border-radius:10px;cursor:pointer;white-space:nowrap}
+.btn.line{background:none;color:var(--ink);border:1px solid var(--line)}
+.btn.warn{background:var(--bad);color:#fff}
+.btn.big{padding:13px 18px;font-size:16px;width:100%}
+button:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.boardbox{background:var(--board);border-radius:18px;padding:10px;aspect-ratio:1;width:100%}
+svg.board{display:block;width:100%;height:100%;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.cell{fill:var(--cell)}
+.cell.own0{fill:var(--p0-soft)} .cell.own1{fill:var(--p1-soft)}
+.cell.tap{fill:var(--cell-hi);cursor:pointer}
+.wall0{fill:var(--p0)} .wall1{fill:var(--p1)}
+.wall.lastw{stroke:var(--ink);stroke-width:2}
+.wopt{fill:var(--ok);opacity:.4;cursor:pointer}
+.wopt-hit{fill:transparent;cursor:pointer}
+.pc0{fill:var(--p0)} .pc1{fill:var(--p1)}
+.pc{stroke:var(--surface);stroke-width:3}
+.pc.can{cursor:pointer}
+.pc.sel{stroke:var(--ok);stroke-width:5}
+.pc-ghost{opacity:.25}
+.lastmark{fill:var(--surface)}
+.panel{background:var(--surface);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.panel h2{font-size:16px;margin:0}
+.panel p{margin:0;color:var(--muted);font-size:13px}
+.conn{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500}
+.conn i{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:none}
+.conn.on i{background:var(--ok)} .conn.off i{background:var(--bad)} .conn.wait i{background:var(--p1)}
+.qr{background:#fff;border-radius:12px;padding:10px;width:min(240px,100%);align-self:center}
+.qr svg{display:block;width:100%;height:auto}
+.linkrow{display:flex;gap:8px;min-width:0}
+.linkrow input{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:13px var(--f-body);background:var(--bg);color:var(--ink)}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;align-items:center}
+.note{font-size:12px;color:var(--muted)}
+details{background:var(--surface);border-radius:14px;padding:12px 14px}
+summary{font-weight:700;cursor:pointer}
+details ol{padding-left:20px;margin:10px 0 0;display:flex;flex-direction:column;gap:6px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;max-width:90vw;z-index:20}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>우리집 벽바둑</h1>
+    <div class="mode" role="group" aria-label="대국 방식">
+      <button id="m-online" aria-pressed="true">두 폰으로</button>
+      <button id="m-local" aria-pressed="false">한 폰으로</button>
+    </div>
+  </header>
+
+  <section class="players">
+    <div class="pl" id="pl0">
+      <div class="top"><span class="dot p0"></span><span class="who" id="who0">파랑</span></div>
+      <div class="score"><span id="sc0">0</span><small>칸 확보</small></div>
+      <div class="seat" id="seat0"></div>
+    </div>
+    <div class="pl" id="pl1">
+      <div class="top"><span class="dot p1"></span><span class="who" id="who1">주황</span></div>
+      <div class="score"><span id="sc1">0</span><small>칸 확보</small></div>
+      <div class="seat" id="seat1"></div>
+    </div>
+  </section>
+
+  <div class="status"><div class="msg" id="msg">불러오는 중…</div><div id="act"></div></div>
+
+  <div class="boardbox"><svg class="board" id="board" viewBox="-6 -6 432 432" aria-label="7×7 벽바둑 판"></svg></div>
+
+  <section class="panel" id="room">
+    <!-- filled by script -->
+  </section>
+
+  <div class="row">
+    <span class="note" id="note"></span>
+    <button class="btn line" id="newgame">새 게임</button>
+  </div>
+
+  <details>
+    <summary>규칙</summary>
+    <ol>
+      <li>7×7 판. 각자 말 4개. 시작할 때 2개씩은 정해진 자리에 놓여 있고, 나머지 2개씩을 번갈아 원하는 빈칸에 놓습니다 (후공 → 선공 → 선공 → 후공).</li>
+      <li>내 차례: 내 말 하나를 상하좌우로 <b>0~2칸</b> 움직입니다. 꺾어서 가도 되고 제자리에 있어도 됩니다(고른 말을 한 번 더 누르기). 벽이나 다른 말은 넘을 수 없어요.</li>
+      <li>움직인 뒤 반드시 그 말이 선 칸의 네 변 중 하나에 <b>벽</b>을 세웁니다. 판 테두리는 원래 벽입니다.</li>
+      <li>벽으로 나뉜 모든 구역에 한 사람의 말만 남으면 게임이 끝납니다. 내 말만 있는 구역의 칸 수가 내 점수입니다.</li>
+      <li>점수가 같으면 가장 큰 구역 하나가 더 큰 사람이 이깁니다. 그것도 같으면 무승부.</li>
+      <li>움직일 수 있는 말이 없으면 차례를 넘깁니다. 새 게임마다 선공이 바뀝니다.</li>
+    </ol>
+  </details>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script>
+(function(){
+const N=7, S=60;
+const COLOR=['파랑','주황'];
+const DIRS={up:[-1,0],down:[1,0],left:[0,-1],right:[0,1]};
+const $=id=>document.getElementById(id);
+const clone=o=>JSON.parse(JSON.stringify(o));
+const store={get(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}},
+  set(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+
+/* ---------- rules ---------- */
+function wk(r,c,d){
+  if(d==='up')return 'h:'+(r-1)+':'+c;
+  if(d==='down')return 'h:'+r+':'+c;
+  if(d==='left')return 'v:'+r+':'+(c-1);
+  return 'v:'+r+':'+c;
+}
+const inB=(r,c)=>r>=0&&r<N&&c>=0&&c<N;
+const wallSet=s=>new Set(s.walls.map(w=>w.k));
+function occ(s){const m=new Map();s.pieces.forEach((p,i)=>m.set(p.r+','+p.c,i));return m}
+function step(ws,r,c,d){const[dr,dc]=DIRS[d];const nr=r+dr,nc=c+dc;if(!inB(nr,nc)||ws.has(wk(r,c,d)))return null;return[nr,nc]}
+function freeSides(ws,r,c){return Object.keys(DIRS).filter(d=>step(ws,r,c,d))}
+function reach(s,i){
+  const ws=wallSet(s),o=occ(s),p=s.pieces[i];
+  const seen=new Set([p.r+','+p.c]);let fr=[[p.r,p.c]];
+  for(let k=0;k<2;k++){const nx=[];
+    for(const[r,c]of fr)for(const d in DIRS){const t=step(ws,r,c,d);if(!t)continue;const key=t[0]+','+t[1];
+      if(seen.has(key)||o.has(key))continue;seen.add(key);nx.push(t)}
+    fr=nx}
+  return[...seen].map(k=>k.split(',').map(Number)).filter(([r,c])=>freeSides(ws,r,c).length>0);
+}
+const hasMove=(s,p)=>s.pieces.some((pc,i)=>pc.p===p&&reach(s,i).length>0);
+function regions(s){
+  const ws=wallSet(s),o=occ(s),id=[...Array(N)].map(()=>Array(N).fill(-1)),regs=[];
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){if(id[r][c]>=0)continue;
+    const g={cells:[],owners:new Set()},q=[[r,c]];id[r][c]=regs.length;
+    while(q.length){const[a,b]=q.pop();g.cells.push([a,b]);const k=a+','+b;if(o.has(k))g.owners.add(s.pieces[o.get(k)].p);
+      for(const d in DIRS){const t=step(ws,a,b,d);if(t&&id[t[0]][t[1]]<0){id[t[0]][t[1]]=regs.length;q.push(t)}}}
+    regs.push(g)}
+  return{regs,id};
+}
+function evaluate(s){
+  const{regs,id}=regions(s),score=[0,0],big=[0,0];let done=true;
+  for(const g of regs){if(g.owners.size>1)done=false;else if(g.owners.size===1){const p=[...g.owners][0];score[p]+=g.cells.length;big[p]=Math.max(big[p],g.cells.length)}}
+  return{score,big,done,regs,id};
+}
+const placeOrder=s=>[1-s.first,s.first,s.first,1-s.first];
+function newGame(prev){
+  const first=prev?1-prev.first:0;
+  return{rev:(prev&&prev.rev||0)+1,game:(prev&&prev.game||0)+1,phase:'place',first,turn:first,placeStep:0,
+    pieces:[{p:0,r:1,c:1},{p:0,r:5,c:5},{p:1,r:1,c:5},{p:1,r:5,c:1}],
+    walls:[],last:null,result:null,skipped:null,moves:0};
+}
+function finish(n){
+  const ev=evaluate(n);
+  const end=()=>{n.phase='over';const w=ev.score[0]!==ev.score[1]?(ev.score[0]>ev.score[1]?0:1):ev.big[0]!==ev.big[1]?(ev.big[0]>ev.big[1]?0:1):-1;
+    n.result={score:ev.score,big:ev.big,winner:w}};
+  if(ev.done)return end();
+  const nx=1-n.turn;
+  if(hasMove(n,nx)){n.turn=nx;n.skipped=null}
+  else if(hasMove(n,n.turn)){n.skipped=nx}
+  else end();
+}
+function doPlace(s,r,c){const n=clone(s);const p=placeOrder(s)[s.placeStep];n.pieces.push({p,r,c});n.placeStep++;n.last={to:[r,c]};
+  if(n.placeStep>=4){n.phase='move';n.turn=n.first;if(!hasMove(n,n.turn))n.turn=1-n.turn}return n}
+function doTurn(s,i,dest,dir){const n=clone(s),pc=n.pieces[i],from=[pc.r,pc.c];pc.r=dest[0];pc.c=dest[1];
+  const k=wk(dest[0],dest[1],dir);n.walls.push({k,p:pc.p});n.last={piece:i,from,to:dest,k};n.moves++;finish(n);return n}
+function actor(s){if(!s)return null;if(s.phase==='place')return placeOrder(s)[s.placeStep];if(s.phase==='move')return s.turn;return null}
+const newer=(a,b)=>!!a&&(!b||a.game>b.game||(a.game===b.game&&a.rev>b.rev));
+
+/* ---------- app state ---------- */
+let mode=store.get('wg-mode')==='local'?'local':'online';
+let localState=store.get('wg-local'), onlineState=store.get('wg-online');
+let role=store.get('wg-role'), roomId=store.get('wg-room');   // role: 'host' | 'guest'
+let sel=null, dest=null;
+let peer=null, conn=null, connState='idle', retryT=null;
+
+const qs=new URLSearchParams(location.search);
+if(qs.get('room')){const r=qs.get('room');
+  if(!(role==='host'&&roomId===r)){ if(roomId!==r)onlineState=null; role='guest';roomId=r;store.set('wg-role',role);store.set('wg-room',r);store.set('wg-online',onlineState)}
+  mode='online';
+  history.replaceState(null,'',location.pathname+(qs.get('peerhost')?'?peerhost='+qs.get('peerhost'):''));
+}
+const mySeat=()=>role==='host'?0:role==='guest'?1:null;
+const cur=()=>mode==='local'?localState:onlineState;
+function canAct(p){const s=cur();if(!s||p==null)return false;if(mode==='local')return true;return mySeat()===p}
+function pname(p){if(mode==='online'&&role)return p===mySeat()?'나':'상대';return COLOR[p]}
+
+let toastT;function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,2800)}
+
+function save(n){
+  sel=dest=null;
+  if(mode==='local'){localState=n;store.set('wg-local',n);render();return}
+  n.rev=Math.max(n.rev||0,(onlineState&&onlineState.rev||0))+1;
+  onlineState=n;store.set('wg-online',n);render();
+  if(!send({type:'state',state:n}))toast('상대와 연결이 끊겨 있어요. 다시 연결되면 자동으로 보내요.');
+}
+
+/* ---------- peer connection ---------- */
+function peerOpts(){
+  const ph=qs.get('peerhost');
+  if(ph){const[h,p]=ph.split(':');return{host:h,port:+(p||9000),path:'/',secure:false,debug:1}}
+  return{debug:1,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:global.stun.twilio.com:3478'}]}};
+}
+function send(m){if(conn&&conn.open){try{conn.send(m);return true}catch(e){}}return false}
+function setConn(s){connState=s;render()}
+function retry(fn,ms){clearTimeout(retryT);retryT=setTimeout(fn,ms)}
+function attach(c){
+  if(conn&&conn!==c){try{conn.close()}catch(e){}}
+  conn=c;
+  c.on('open',()=>{if(conn!==c)return;setConn('on');send({type:'state',state:onlineState})});
+  c.on('data',m=>{
+    if(!m||m.type!=='state')return;
+    if(newer(m.state,onlineState)){onlineState=m.state;store.set('wg-online',onlineState);sel=dest=null;render()}
+    else if(newer(onlineState,m.state))send({type:'state',state:onlineState});
+  });
+  const lost=()=>{if(conn!==c)return;conn=null;setConn(role==='host'&&peer&&peer.open?'ready':'off');if(role==='guest')retry(connectHost,2500)};
+  c.on('close',lost);c.on('error',lost);
+}
+function connectHost(){
+  if(!peer||peer.destroyed){startPeer();return}
+  if(peer.disconnected){try{peer.reconnect()}catch(e){};retry(connectHost,2500);return}
+  if(conn&&conn.open)return;
+  setConn('wait');
+  attach(peer.connect(roomId,{reliable:true}));
+}
+function startPeer(){
+  if(typeof Peer==='undefined'){setConn('nolib');return}
+  if(peer&&!peer.destroyed){try{peer.destroy()}catch(e){}}
+  setConn('wait');
+  peer=role==='host'?new Peer(roomId,peerOpts()):new Peer(peerOpts());
+  peer.on('open',()=>{if(role==='guest')connectHost();else setConn(conn&&conn.open?'on':'ready')});
+  peer.on('connection',c=>{if(role==='host')attach(c)});
+  peer.on('disconnected',()=>{if(!peer.destroyed)retry(()=>{try{peer.reconnect()}catch(e){startPeer()}},2000)});
+  peer.on('error',e=>{
+    const t=e&&e.type;
+    if(t==='peer-unavailable'){setConn('nohost');retry(connectHost,3000)}
+    else if(t==='unavailable-id'){setConn('wait');retry(startPeer,4000)}
+    else{setConn('off');retry(startPeer,4000)}
+  });
+}
+function makeRoom(){
+  role='host';roomId='wallgo-'+Math.random().toString(36).slice(2,10);
+  store.set('wg-role',role);store.set('wg-room',roomId);
+  if(!onlineState){onlineState=newGame(null);store.set('wg-online',onlineState)}
+  startPeer();render();
+}
+function leaveRoom(){
+  clearTimeout(retryT);try{conn&&conn.close()}catch(e){}try{peer&&peer.destroy()}catch(e){}
+  peer=conn=null;role=roomId=null;onlineState=null;store.set('wg-role',null);store.set('wg-room',null);store.set('wg-online',null);
+  connState='idle';sel=dest=null;render();
+}
+const joinUrl=()=>location.origin+location.pathname+'?room='+encodeURIComponent(roomId)+(qs.get('peerhost')?'&peerhost='+qs.get('peerhost'):'');
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible'||mode!=='online'||!role)return;
+  if(!peer||peer.destroyed)startPeer();
+  else if(peer.disconnected){try{peer.reconnect()}catch(e){startPeer()}}
+  else if(role==='guest'&&!(conn&&conn.open))connectHost();
+});
+
+/* ---------- render ---------- */
+const NS='http://www.w3.org/2000/svg';
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e}
+function h(tag,props,parent){const e=document.createElement(tag);Object.assign(e,props||{});if(parent)parent.appendChild(e);return e}
+function wallRect(k,thick){const[t,a,b]=k.split(':');const r=+a,c=+b;
+  if(t==='h')return{x:c*S+2,y:(r+1)*S-thick/2,width:S-4,height:thick};
+  return{x:(c+1)*S-thick/2,y:r*S+2,width:thick,height:S-4}}
+
+function renderBoard(){
+  const svg=$('board');svg.textContent='';const s=cur();
+  const g=el('g',{},svg);
+  const ev=s?evaluate(s):null, who=actor(s), mine=canAct(who);
+  const reachSet=new Set();
+  if(s&&s.phase==='move'&&sel!=null&&!dest)reach(s,sel).forEach(([r,c])=>reachSet.add(r+','+c));
+  const o=s?occ(s):new Map();
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    let cls='cell';
+    if(ev){const reg=ev.regs[ev.id[r][c]];if(reg.owners.size===1)cls+=' own'+[...reg.owners][0]}
+    const key=r+','+c;const attrs={x:c*S+3,y:r*S+3,width:S-6,height:S-6,rx:7};
+    if(reachSet.has(key)){cls+=' tap';attrs['data-act']='dest';attrs['data-r']=r;attrs['data-c']=c}
+    else if(s&&s.phase==='place'&&mine&&!o.has(key)){cls+=' tap';attrs['data-act']='place';attrs['data-r']=r;attrs['data-c']=c}
+    attrs.class=cls;el('rect',attrs,g);
+  }
+  if(!s)return;
+  const lastK=s.last&&s.last.k;
+  for(const w of s.walls)el('rect',Object.assign({rx:3,class:'wall wall'+w.p+(w.k===lastK?' lastw':'')},wallRect(w.k,9)),g);
+  s.pieces.forEach((pc,i)=>{
+    let r=pc.r,c=pc.c;
+    if(i===sel&&dest){el('circle',{cx:c*S+S/2,cy:r*S+S/2,r:19,class:'pc pc'+pc.p+' pc-ghost'},g);r=dest[0];c=dest[1]}
+    const can=s.phase==='move'&&mine&&pc.p===s.turn;
+    const a={cx:c*S+S/2,cy:r*S+S/2,r:19,class:'pc pc'+pc.p+(can?' can':'')+(i===sel?' sel':'')};
+    if(can){a['data-act']='piece';a['data-i']=i}
+    el('circle',a,g);
+    if(s.last&&s.last.to&&s.last.to[0]===pc.r&&s.last.to[1]===pc.c&&!(i===sel&&dest))el('circle',{cx:pc.c*S+S/2,cy:pc.r*S+S/2,r:4,class:'lastmark','pointer-events':'none'},g);
+  });
+  if(s.phase==='move'&&sel!=null&&dest){
+    const ws=wallSet(s);
+    for(const d of freeSides(ws,dest[0],dest[1])){const k=wk(dest[0],dest[1],d);
+      const gg=el('g',{'data-act':'wall','data-d':d},g);
+      el('rect',Object.assign({rx:4,class:'wopt'},wallRect(k,11)),gg);
+      el('rect',Object.assign({class:'wopt-hit'},wallRect(k,30)),gg);}
+  }
+}
+
+function renderStatus(){
+  const s=cur(),msg=$('msg'),act=$('act');act.textContent='';msg.className='msg';
+  if(mode==='online'&&!role){msg.textContent='아래에서 방을 만들고 QR을 상대 폰으로 찍게 하세요.';return}
+  if(!s){msg.textContent='새 게임을 시작하세요.';h('button',{className:'btn',textContent:'새 게임 시작',onclick:()=>save(newGame(null))},act);return}
+  if(s.phase==='over'){const R=s.result;msg.className='msg over';
+    msg.textContent=(R.winner<0?'무승부 ':`${pname(R.winner)===('나')?'내가 이겼어요!':pname(R.winner)+' 승리!'} `)+`${R.score[0]} : ${R.score[1]}`;
+    h('button',{className:'btn',textContent:'한 판 더',onclick:()=>save(newGame(s))},act);return}
+  const who=actor(s);
+  if(!canAct(who)){msg.textContent=mode==='online'&&connState!=='on'?'상대 차례예요. (지금 연결 안 됨)':'상대 차례예요. 기다리는 중…';return}
+  msg.classList.add('mine');
+  const tag=mode==='local'?`${COLOR[who]} · `:'내 차례 · ';
+  if(s.phase==='place'){const k=placeOrder(s).slice(0,s.placeStep).filter(p=>p===who).length+1;msg.textContent=`${tag}말을 놓을 빈칸을 누르세요 (${k}/2)`;return}
+  if(sel==null)msg.textContent=tag+(s.skipped!=null?`${COLOR[s.skipped]}은 둘 곳이 없어 한 번 더! `:'')+'움직일 말을 고르세요';
+  else if(!dest)msg.textContent=tag+'갈 칸을 고르세요 (제자리면 말을 한 번 더)';
+  else msg.textContent=tag+'벽을 세울 변을 누르세요';
+  if(sel!=null)h('button',{className:'btn line',textContent:'취소',onclick:()=>{sel=dest=null;render()}},act);
+}
+
+function renderPlayers(){
+  const s=cur(),ev=s?evaluate(s):null,who=actor(s);
+  for(const p of[0,1]){
+    $('who'+p).textContent=mode==='online'&&role?`${pname(p)} (${COLOR[p]})`:COLOR[p];
+    $('sc'+p).textContent=ev?ev.score[p]:0;
+    $('pl'+p).className='pl'+(who===p?' turn'+p:'');
+    $('seat'+p).textContent=s&&s.phase!=='over'&&s.first===p?'선공':'';
+  }
+}
+
+const CONN_TEXT={on:['on','상대와 연결됨'],ready:['wait','방이 열렸어요 · 상대가 들어오길 기다리는 중'],wait:['wait','연결 준비 중…'],off:['off','연결 끊김 · 다시 연결하는 중'],
+  nohost:['wait','방을 만든 폰이 아직 안 열려 있어요. 그 폰에서 이 페이지를 열어 주세요.'],nolib:['off','연결 모듈을 불러오지 못했어요. 인터넷을 확인하고 새로고침해 주세요.'],idle:['wait','']};
+function renderRoom(){
+  const box=$('room');box.textContent='';box.hidden=mode!=='online';
+  const bb=document.querySelector('.boardbox');const top=!role||connState!=='on';
+  if(top&&box.nextElementSibling!==bb)bb.before(box);else if(!top&&bb.nextElementSibling!==box)bb.after(box);
+  if(mode!=='online')return;
+  if(!role){
+    h('h2',{textContent:'두 폰으로 같이 두기'},box);
+    h('p',{textContent:'한 사람이 방을 만들면 QR 코드가 나와요. 다른 폰 카메라로 QR을 찍으면 바로 연결돼요. 로그인은 필요 없어요.'},box);
+    h('button',{className:'btn big',textContent:'방 만들기',onclick:makeRoom},box);
+    return;
+  }
+  const[cls,txt]=CONN_TEXT[connState]||CONN_TEXT.wait;
+  const c=h('div',{className:'conn '+cls},box);h('i',{},c);h('span',{textContent:txt||'연결 준비 중…'},c);
+  if(role==='host'){
+    const d=h('details',{open:connState!=='on'},box);d.style.padding='0';
+    h('summary',{textContent:connState==='on'?'QR 다시 보기':'상대 폰으로 이 QR을 찍게 하세요'},d);
+    const inner=h('div',{},d);inner.style.cssText='display:flex;flex-direction:column;gap:10px;margin-top:10px';
+    const q=h('div',{className:'qr'},inner);
+    if(typeof qrcode!=='undefined'){const qr=qrcode(0,'M');qr.addData(joinUrl());qr.make();q.innerHTML=qr.createSvgTag({cellSize:4,margin:2,scalable:true})}
+    else q.textContent='QR을 불러오지 못했어요. 아래 링크를 보내 주세요.';
+    h('p',{textContent:'카메라가 없으면 아래 링크를 카톡으로 보내도 돼요.'},inner);
+    const row=h('div',{className:'linkrow'},inner);
+    const inp=h('input',{id:'joinlink',value:joinUrl(),readOnly:true},row);
+    h('button',{className:'btn line',textContent:'복사',onclick:async()=>{try{await navigator.clipboard.writeText(inp.value);toast('링크를 복사했어요.')}catch(e){inp.select();toast('링크를 길게 눌러 복사해 주세요.')}}},row);
+  }
+  const r=h('div',{className:'row'},box);
+  h('span',{className:'note',textContent:role==='host'?'내가 방장 · 파랑':'상대 방에 참가 · 주황'},r);
+  const lb=h('button',{className:'btn line',textContent:'방 나가기'},r);
+  lb.onclick=()=>{if(lb.dataset.arm){leaveRoom();return}lb.dataset.arm='1';lb.className='btn warn';lb.textContent='정말 나갈까요?';setTimeout(()=>{if(lb.isConnected){delete lb.dataset.arm;lb.className='btn line';lb.textContent='방 나가기'}},3500)};
+}
+function renderNote(){
+  const s=cur();
+  $('note').textContent=mode==='local'?'한 폰을 번갈아 들고 두는 모드예요.':(s?`${s.game}번째 판 · ${s.moves}수`:'');
+  $('newgame').hidden=!s||(mode==='online'&&!role);
+  $('m-online').setAttribute('aria-pressed',mode==='online');$('m-local').setAttribute('aria-pressed',mode==='local');
+}
+let wasMine=false;
+function render(){renderPlayers();renderStatus();renderBoard();renderRoom();renderNote();
+  const s=cur();const mine=!!(mode==='online'&&role&&s&&canAct(actor(s)));
+  document.title=mine?'● 내 차례 · 우리집 벽바둑':'우리집 벽바둑';
+  if(mine&&!wasMine){try{navigator.vibrate&&navigator.vibrate(150)}catch(e){}}
+  wasMine=mine;
+}
+
+/* ---------- input ---------- */
+let confirmT=null;
+$('newgame').onclick=()=>{
+  const b=$('newgame');const s=cur();
+  const go=()=>save(newGame(s));
+  if(!s||s.phase==='over'){go();return}
+  if(b.dataset.arm){clearTimeout(confirmT);delete b.dataset.arm;b.className='btn line';b.textContent='새 게임';go();return}
+  b.dataset.arm='1';b.className='btn warn';b.textContent='지금 판을 버릴까요? 한 번 더';
+  confirmT=setTimeout(()=>{delete b.dataset.arm;b.className='btn line';b.textContent='새 게임'},3500);
+};
+$('board').addEventListener('click',e=>{
+  const t=e.target.closest('[data-act]');const s=cur();if(!s)return;
+  if(!t){if(sel!=null){sel=dest=null;render()}return}
+  const a=t.dataset.act;
+  if(a==='place')save(doPlace(s,+t.dataset.r,+t.dataset.c));
+  else if(a==='piece'){const i=+t.dataset.i;
+    if(sel===i&&!dest){const pc=s.pieces[i];if(reach(s,i).some(([r,c])=>r===pc.r&&c===pc.c))dest=[pc.r,pc.c];else{sel=null;toast('이 칸에는 더 세울 벽이 없어요.')}}
+    else{sel=i;dest=null}render()}
+  else if(a==='dest'){dest=[+t.dataset.r,+t.dataset.c];render()}
+  else if(a==='wall')save(doTurn(s,sel,dest,t.dataset.d));
+});
+function setMode(m){mode=m;sel=dest=null;store.set('wg-mode',m);render()}
+$('m-online').onclick=()=>setMode('online');$('m-local').onclick=()=>setMode('local');
+
+render();
+if(role&&roomId)startPeer();
+})();
+</script>
+</body>
+</html>
